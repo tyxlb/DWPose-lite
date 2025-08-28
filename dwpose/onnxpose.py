@@ -29,10 +29,11 @@ def preprocess(
         y0 = out_bbox[i][1]
         x1 = out_bbox[i][2]
         y1 = out_bbox[i][3]
-        bbox = np.array([x0, y0, x1, y1])
 
         # get center and scale
-        center, scale = bbox_xyxy2cs(bbox, padding=1.25)
+        padding=1.25
+        center = np.array([x0 + x1, y0 + y1]) * 0.5
+        scale = np.array([x1 - x0, y1 - y0]) * padding
 
         # do affine transformation
         resized_img, scale = top_down_affine(input_size, scale, center, img)
@@ -106,40 +107,6 @@ def postprocess(outputs: List[np.ndarray],
         all_score.append(scores[0])
 
     return np.array(all_key), np.array(all_score)
-
-
-def bbox_xyxy2cs(bbox: np.ndarray,
-                 padding: float = 1.) -> Tuple[np.ndarray, np.ndarray]:
-    """Transform the bbox format from (x,y,w,h) into (center, scale)
-
-    Args:
-        bbox (ndarray): Bounding box(es) in shape (4,) or (n, 4), formatted
-            as (left, top, right, bottom)
-        padding (float): BBox padding factor that will be multilied to scale.
-            Default: 1.0
-
-    Returns:
-        tuple: A tuple containing center and scale.
-        - np.ndarray[float32]: Center (x, y) of the bbox in shape (2,) or
-            (n, 2)
-        - np.ndarray[float32]: Scale (w, h) of the bbox in shape (2,) or
-            (n, 2)
-    """
-    # convert single bbox from (4, ) to (1, 4)
-    dim = bbox.ndim
-    if dim == 1:
-        bbox = bbox[None, :]
-
-    # get bbox center and scale
-    x1, y1, x2, y2 = np.hsplit(bbox, [1, 2, 3])
-    center = np.hstack([x1 + x2, y1 + y2]) * 0.5
-    scale = np.hstack([x2 - x1, y2 - y1]) * padding
-
-    if dim == 1:
-        center = center[0]
-        scale = scale[0]
-
-    return center, scale
 
 
 def _fix_aspect_ratio(bbox_scale: np.ndarray,
@@ -248,8 +215,7 @@ def get_warp_matrix(center: np.ndarray,
     return warp_mat
 
 
-def top_down_affine(input_size: dict, bbox_scale: dict, bbox_center: dict,
-                    img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def top_down_affine(input_size, bbox_scale, bbox_center, img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Get the bbox image as the model input by affine transform.
 
     Args:

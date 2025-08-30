@@ -79,13 +79,13 @@ def draw_bodypose(canvas, candidate, subset):
               [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], \
               [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
 
-    for i in range(17):
-        for n in range(len(subset)):
-            index = subset[n][np.array(limbSeq[i]) - 1]
-            if -1 in index:
+    for n in range(len(subset)):
+        for i in range(17):
+            index = np.array(limbSeq[i]) - 1
+            if -1 in subset[n][index]:
                 continue
-            Y = candidate[index.astype(int), 0] * float(W)
-            X = candidate[index.astype(int), 1] * float(H)
+            Y = candidate[n][index.astype(int), 0] * float(W)
+            X = candidate[n][index.astype(int), 1] * float(H)
             mX = np.mean(X)
             mY = np.mean(Y)
             length = ((X[0] - X[1]) ** 2 + (Y[0] - Y[1]) ** 2) ** 0.5
@@ -95,12 +95,11 @@ def draw_bodypose(canvas, candidate, subset):
 
     canvas = (canvas * 0.6).astype(np.uint8)
 
-    for i in range(18):
-        for n in range(len(subset)):
-            index = int(subset[n][i])
-            if index == -1:
+    for n in range(len(subset)):
+        for i in range(18):
+            if subset[n][i] == -1:
                 continue
-            x, y = candidate[index][0:2]
+            x, y = candidate[n][i][0:2]
             x = int(x * W)
             y = int(y * H)
             cv2.circle(canvas, (int(x), int(y)), 4, colors[i], thickness=-1)

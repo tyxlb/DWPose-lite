@@ -34,18 +34,11 @@ class DWposeDetector:
         oriImg = oriImg.copy()
         H, W, C = oriImg.shape
         candidate, subset = self.pose_estimation(oriImg)
-        nums, keys, locs = candidate.shape
         candidate[..., 0] /= float(W)
         candidate[..., 1] /= float(H)
         body = candidate[:,:18].copy()
-        body = body.reshape(nums*18, locs)
         score = subset[:,:18]
-        for i in range(len(score)):
-            for j in range(len(score[i])):
-                if score[i][j] > 0.3:
-                    score[i][j] = int(18*i+j)
-                else:
-                    score[i][j] = -1
+        score[score<0.3]=-1
 
         un_visible = subset<0.3
         candidate[un_visible] = -1

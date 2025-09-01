@@ -6,7 +6,10 @@
 
 import numpy as np
 from . import util
-from .wholebody import Wholebody
+
+import onnxruntime as ort
+from .onnxdet import inference_detector
+from .onnxpose import inference_pose
 
 def draw_pose(pose, H, W):
     bodies = pose['bodies']
@@ -27,15 +30,18 @@ def draw_pose(pose, H, W):
 
 class DWposeDetector:
     def __init__(self,device="CPU"):
+        onnx_det = 'ckpts/yolox_l.onnx'
+        onnx_pose = 'ckpts/dw-ll_ucoco_384.onnx'
+        providers=['CUDAExecutionProvider'] if device=="GPU" else ['CPUExecutionProvider']
 
-        self.pose_estimation = Wholebody(device=device)
+        self.session_det = ort.InferenceSession(path_or_bytes=onnx_det, providers=providers)
+        self.session_pose = ort.InferenceSession(path_or_bytes=onnx_pose, providers=providers)
     
     def __call__(self, oriImg:np.ndarray):
         oriImg = oriImg.copy()
         H, W, C = oriImg.shape
-        candidate, subset = self.pose_estimation(oriImg)
-        candidate[..., 0] /= float(W)
-        candidate[..., 1] /= float(H)
+        det_result = inference_detector(self.session_det, oriImg)
+        candidate, subset = inference_pose(self.session_pose, det_result, oriImg)
         body = candidate[:,:18].copy()
         score = subset[:,:18]
         score[score<0.3]=-1

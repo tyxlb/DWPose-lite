@@ -8,7 +8,7 @@ device=onnxruntime.get_device()
 print(device)
 if device=="GPU":
     onnxruntime.preload_dlls()
-detector = dwpose.DWposeDetector(device=device)
+detector = dwpose.DWposeDetector(device=device,det=False)
 
 video_capture = cv2.VideoCapture(0)
 

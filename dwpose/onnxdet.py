@@ -66,9 +66,9 @@ def demo_postprocess(outputs, img_size, p6=False):
     grids = np.concatenate(grids, 1)
     expanded_strides = np.concatenate(expanded_strides, 1)
     outputs[..., :2] = (outputs[..., :2] + grids) * expanded_strides
-    outputs[..., 2:4] = np.exp(outputs[..., 2:4]) * expanded_strides
+    outputs[..., 2:4] = np.exp(outputs[..., 2:4])/2. * expanded_strides
 
-    return outputs
+    return outputs[0]
 
 def preprocess(img, input_size, swap=(2, 0, 1)):
     if len(img.shape) == 3:
@@ -93,17 +93,17 @@ def inference_detector(session, oriImg):
     img, ratio = preprocess(oriImg, input_shape)
 
     ort_inputs = {session.get_inputs()[0].name: img[None, :, :, :]}
-    output = session.run(None, ort_inputs)
-    predictions = demo_postprocess(output[0], input_shape)[0]
+    output = session.run(None, ort_inputs)[0]
+    predictions = demo_postprocess(output, input_shape)
 
     boxes = predictions[:, :4]
     scores = predictions[:, 4:5] * predictions[:, 5:]
 
     boxes_xyxy = np.ones_like(boxes)
-    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2]/2.
-    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3]/2.
-    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2]/2.
-    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3]/2.
+    boxes_xyxy[:, 0] = boxes[:, 0] - boxes[:, 2]
+    boxes_xyxy[:, 1] = boxes[:, 1] - boxes[:, 3]
+    boxes_xyxy[:, 2] = boxes[:, 0] + boxes[:, 2]
+    boxes_xyxy[:, 3] = boxes[:, 1] + boxes[:, 3]
     boxes_xyxy /= ratio
     final_boxes = multiclass_nms(boxes_xyxy, scores, nms_thr=0.45, score_thr=0.3)
 

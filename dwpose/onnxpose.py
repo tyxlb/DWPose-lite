@@ -19,11 +19,9 @@ def preprocess(
         - center (np.ndarray): Center of image.
         - scale (np.ndarray): Scale of image.
     """
-    # get shape of image
-    img_shape = img.shape[:2]
     out_img, out_center, out_scale = [], [], []
     if len(out_bbox) == 0:
-        out_bbox = [[0, 0, img_shape[1], img_shape[0]]]
+        out_bbox = [[0, 0, img.shape[1], img.shape[0]]]
     for i in range(len(out_bbox)):
         x0 = out_bbox[i][0]
         y0 = out_bbox[i][1]
@@ -35,8 +33,11 @@ def preprocess(
         center = np.array([x0 + x1, y0 + y1]) * 0.5
         scale = np.array([x1 - x0, y1 - y0]) * padding
 
+        # reshape bbox to fixed aspect ratio
+        scale = _fix_aspect_ratio(scale, aspect_ratio=input_size[0] / input_size[1])
+
         # do affine transformation
-        resized_img, scale = top_down_affine(input_size, scale, center, img)
+        resized_img = top_down_affine(input_size, scale, center, img)
 
         # normalize image
         mean = np.array([123.675, 116.28, 103.53])
@@ -246,24 +247,17 @@ def top_down_affine(input_size, bbox_scale, bbox_center, img: np.ndarray) -> Tup
     Returns:
         tuple: A tuple containing center and scale.
         - np.ndarray[float32]: img after affine transform.
-        - np.ndarray[float32]: bbox scale after affine transform.
     """
     w, h = input_size
     warp_size = (int(w), int(h))
 
-    # reshape bbox to fixed aspect ratio
-    bbox_scale = _fix_aspect_ratio(bbox_scale, aspect_ratio=w / h)
-
     # get the affine matrix
-    center = bbox_center
-    scale = bbox_scale
-    rot = 0
-    warp_mat = get_warp_matrix(center, scale, rot, output_size=(w, h))
+    warp_mat = get_warp_matrix(bbox_center, bbox_scale, rot=0, output_size=(w, h))
 
     # do affine transform
     img = cv2.warpAffine(img, warp_mat, warp_size, flags=cv2.INTER_LINEAR)
 
-    return img, bbox_scale
+    return img
 
 
 def get_simcc_maximum(simcc_x: np.ndarray,

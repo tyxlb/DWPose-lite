@@ -34,10 +34,13 @@ def preprocess(
         scale = np.array([x1 - x0, y1 - y0]) * padding
 
         # reshape bbox to fixed aspect ratio
-        scale = _fix_aspect_ratio(scale, aspect_ratio=input_size[0] / input_size[1])
+        scale = np.array(_fix_aspect_ratio(scale, aspect_ratio=input_size[0] / input_size[1]))
+
+        # get the affine matrix
+        warp_mat = get_warp_matrix(center, scale, rot=0, output_size=input_size)
 
         # do affine transformation
-        resized_img = top_down_affine(input_size, scale, center, img)
+        resized_img = cv2.warpAffine(img, warp_mat, input_size, flags=cv2.INTER_LINEAR)
 
         # normalize image
         mean = np.array([123.675, 116.28, 103.53])
@@ -113,7 +116,7 @@ def postprocess(outputs: List[np.ndarray],
     # neck score when visualizing pred
     neck[:, 2:4] = np.logical_and(
         keypoints_info[:, 5, 2:4] > 0.3,
-        keypoints_info[:, 6, 2:4] > 0.3).astype(int)
+        keypoints_info[:, 6, 2:4] > 0.3).astype(np.float32)
     new_keypoints_info = np.insert(
         keypoints_info, 17, neck, axis=1)
     mmpose_idx = [
@@ -140,11 +143,11 @@ def _fix_aspect_ratio(bbox_scale: np.ndarray,
     Returns:
         np.ndarray: The reshaped image scale in (2, )
     """
-    w, h = np.hsplit(bbox_scale, [1])
-    bbox_scale = np.where(w > h * aspect_ratio,
-                          np.hstack([w, w / aspect_ratio]),
-                          np.hstack([h * aspect_ratio, h]))
-    return bbox_scale
+    w, h = bbox_scale[0],bbox_scale[1]
+    if w > h * aspect_ratio:
+        return w,w / aspect_ratio
+    else:
+        return h * aspect_ratio,h
 
 
 def _rotate_point(pt: np.ndarray, angle_rad: float) -> np.ndarray:
@@ -233,31 +236,6 @@ def get_warp_matrix(center: np.ndarray,
         warp_mat = cv2.getAffineTransform(np.float32(src), np.float32(dst))
 
     return warp_mat
-
-
-def top_down_affine(input_size, bbox_scale, bbox_center, img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Get the bbox image as the model input by affine transform.
-
-    Args:
-        input_size: The input size of the model.
-        bbox_scale: The bbox scale of the img.
-        bbox_center: The bbox center of the img.
-        img (np.ndarray): The original image.
-
-    Returns:
-        tuple: A tuple containing center and scale.
-        - np.ndarray[float32]: img after affine transform.
-    """
-    w, h = input_size
-    warp_size = (int(w), int(h))
-
-    # get the affine matrix
-    warp_mat = get_warp_matrix(bbox_center, bbox_scale, rot=0, output_size=(w, h))
-
-    # do affine transform
-    img = cv2.warpAffine(img, warp_mat, warp_size, flags=cv2.INTER_LINEAR)
-
-    return img
 
 
 def get_simcc_maximum(simcc_x: np.ndarray,
